@@ -40,7 +40,12 @@ class GenesisSim:
         self.scene = gs.Scene(**SCENE_SETTINGS)
         self.rigid = self.scene.sim.rigid_solver
         self.viewer = self.scene.viewer
-        self.device = torch.cuda.current_device()
+        
+        # Check if CUDA is available, use CPU if not
+        if torch.cuda.is_available():
+            self.device = torch.cuda.current_device()
+        else:
+            self.device = "cpu"
 
         # Add third-person view (TPV) camera
         if with_camera(TPV_CAM_SETTINGS):
