@@ -1,15 +1,17 @@
 # Define the default settings for the simulation APP
 import genesis as gs
+import torch
 
 from pathlib import Path
 current_file_path = Path(__file__).resolve().parent
 root_path = str(current_file_path.parent.parent)  # '/home/lianxin/SpaceArmLab'
 asset_path = root_path + '/src/assets/'
 
+backend = gs.cuda if torch.cuda.is_available() else gs.cpu
 
 APP_SETTINGS = {
     "seed": 0,
-    "backend":gs.cpu,
+    "backend":backend,
     "precision": "32",
     "logging_level": "debug",
 }

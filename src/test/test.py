@@ -15,11 +15,11 @@ GS = GenesisSim()
 from controllers.keyboard_controller import KeyboardController
 controller = KeyboardController()
 
-# from sensors.wrist_camera import WristCamera
-# wrist_camera = WristCamera()
+from sensors.wrist_camera import WristCamera
+wrist_camera = WristCamera()
 
 from robots.franka import Franka
-franka = Franka(name="franka",sensors=[], backends=[controller])
+franka = Franka(name="franka",sensors=[wrist_camera], backends=[controller])
 
 from robots.robot import Robot
 satellite = Robot(name="satellite")

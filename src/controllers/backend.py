@@ -58,13 +58,38 @@ class Backend(ABC):
         return []
 
     # @abstractmethod
-    def update_state(self, state):
-        """Method that when implemented, should handle the receival of the state of the robot using this callback
+    def update_state(self):
+        try:
+            # Update base's position and attitude
+            self.update_base_state()
 
-        Args:
-            state (State): The current state of the robot.
-        """
-        pass
+            # Transmit the updated base to ee
+            baselink_state = self._base_state.global_state
+            
+            # Check for NaNs in base state
+            if torch.isnan(baselink_state.position).any() or torch.isnan(baselink_state.quat).any():
+                print("WARNING: NaN in base state! Using safe values.")
+                # Use last known good state or defaults
+                return
+                
+            self.ee_state.update_baselink(baselink_state)
+
+            # Get end effector position and quaternion
+            ee_pos = self.end_effector.get_pos()
+            ee_quat = self.end_effector.get_quat()  # [qw,qx,qy,qz]
+            
+            # Convert to tensors with safety checks
+            if any(math.isnan(x) for x in ee_pos) or any(math.isnan(x) for x in ee_quat):
+                print("WARNING: NaN from Genesis! Skipping update.")
+                return
+                
+            # Update robot's end effector state
+            self.ee_state.update_from_global_frame(
+                position=ee_pos,
+                quat=ee_quat
+            )
+        except Exception as e:
+            print(f"Error in update_state: {e}")
 
     @abstractmethod
     def step(self, dt: float):

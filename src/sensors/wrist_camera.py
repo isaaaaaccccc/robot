@@ -20,6 +20,7 @@ WRIST_CAM_SETTINGS = {
         "lookat": (0, 0, 0),
         "fov": 40,
         "GUI": True,
+        # "GUI_title": "Camera 2"
     },
     "end_effector_link": "panda_hand",
 }
@@ -32,11 +33,18 @@ class WristCamera(Backend):
         self._scene = GenesisSim().scene
         self.device = GenesisSim().device
         self.datatype = torch.float32
-        self.cam = self._scene.add_camera(**WRIST_CAM_SETTINGS["camera"])
+        self._step = 0
+        
+        # Use private attribute to avoid property conflict
+        self._cam = self._scene.add_camera(**WRIST_CAM_SETTINGS["camera"])
+        self._robot = None
+        self.end_effector = None
+        self.cam_pos = None
+        self.cam_lookat = None
         
     @property
     def cam(self):
-        return self.cam
+        return self._cam
     
     @property
     def pos(self):
@@ -49,25 +57,30 @@ class WristCamera(Backend):
     def initialize(self, robot=None):
         self._robot = robot
         
-        self.end_effector = self._robot.get_link(WRIST_CAM_SETTINGS["end_effector_link"])
+        # Access Genesis robot entity through Robot wrapper (robot.robot has get_link())
+        if hasattr(robot, 'robot'):
+            genesis_robot = robot.robot
+            self.end_effector = genesis_robot.get_link(WRIST_CAM_SETTINGS["end_effector_link"])
+        else:
+            raise AttributeError(f"Robot object {robot} does not have a 'robot' attribute containing the Genesis entity")
 
     def step(self):
         self._step += 1
         # 获得robot的手腕位置姿态
-        position=self.end_effector.get_pos()
-        quaternion=self.end_effector.get_quat() # [qw, qx, qy, qz]
+        position = self.end_effector.get_pos()
+        quaternion = self.end_effector.get_quat() # [qw, qx, qy, qz]
         position = torch.tensor(position, dtype=self.datatype, device=self.device)
         quaternion = torch.tensor(quaternion, dtype=self.datatype, device=self.device)  
 
         # 更改其camera到手腕
         rotation_matrix = as_rotation_matrix(quaternion)
-        self.cam_pos = offset(position,rotation_matrix,[0.0,1.0,0.0])
-        self.cam_lookat = offset(position,rotation_matrix,[1.0,0.0,0.0])
+        self.cam_pos = offset(position, rotation_matrix, [0.0, 1.0, 0.0])
+        self.cam_lookat = offset(position, rotation_matrix, [1.0, 0.0, 0.0])
 
-        self.cam.set_pose(pos=self.cam_pos,lookat=self.cam_lookat)
+        self._cam.set_pose(pos=self.cam_pos, lookat=self.cam_lookat)
 
         # 返回image
-        rgb, *rest = self.cam.render(
+        rgb, *rest = self._cam.render(
             rgb=True,
             # depth        = True,
             # segmentation = True,
@@ -76,7 +89,7 @@ class WristCamera(Backend):
 
     def reset(self):
         """无需reset"""
-        pass
+        self._step = 0
 
     def stop(self):
         """无需stop"""
